@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import {v4} from 'uuid';
-import axios from 'axios';
+//import axios from 'axios';
+import firebase from './firebase/firebase'
 import { BrowserRouter as Router, Route } from 'react-router-dom';
 
 import Header from './components/Header';
@@ -13,8 +14,9 @@ import About from './components/About';
 import './App.css';
 
 export default class App extends Component {
-  state = {
-    transactions: []
+    state = {
+    transactions: [],
+    image:''
   }
 
   loadData = () => {
@@ -51,17 +53,31 @@ export default class App extends Component {
 
   loadJsonData = () => {
     // get data from json file: "public/static/data.json"
-    axios.get('/static/data.json')
-      .then( res => {
-        const data = res.data;
-        this.setState( { transactions: data } );
-      });
+    // axios.get('/static/data.json')
+    //   .then( res => {
+    //     const data = res.data;
+    //     this.setState( { transactions: data } );
+    //   });
+    // get data by array
+    // onsnapshot  update a data to items 
+          // set state from transaction by put it in transaction to set state
+        //firebase pull data from array
+        firebase.firestore().collection('data').onSnapshot(items=>{
+          const transaction = []
+            items.forEach(res=>{
+            transaction.push(res.data())
+        })
+        this.setState({transactions:transaction})
+    })
   }
-
+  //cycle web must do this first before web open
   componentDidMount() {
     // this.loadData();   // load data from variable
     this.loadJsonData();  // load data from JSON file on server
     // this.loadFirebase(); // load data from Firebase
+    // firebase.storage().ref('self.jpg').getDownloadURL().then(res=>{
+    //   this.setState({image:res})
+    // })
   }
 
   validateForm = (name,amount) => {
@@ -71,7 +87,12 @@ export default class App extends Component {
     } else if ( !isNaN(name)) {
       window.alert('Please fill only TEXT detail in transaction name.');
       return false;
-    } else if (+amount === 0) {
+    } 
+    else if(!Number.isInteger(+amount)){
+      window.alert('Please fill only Integer in transaction amount field.');
+      return false;
+    }
+    else if (+amount === 0) {
       window.alert('Amount CANNOT be zero!');
       return false;
     }
@@ -89,16 +110,22 @@ export default class App extends Component {
       id: v4(),
       name,
       amount: +amount,
-      date: new Date()
+      date: new Date().getTime()
     }
 
+    firebase.firestore().collection('data').add(newTransaction)
     this.state.transactions.unshift(newTransaction);
     this.setState( { transactions: this.state.transactions } );
   }
 
   clearTransactions = () => {
     let ans = window.confirm("You are going to clear all transaction history!!!")
-    if (ans) {
+    if(ans){
+      firebase.firestore().collection('data').get().then(function(Snapshot){
+        Snapshot.forEach(function(doc){
+          doc.ref.delete()
+        })
+      })
       this.setState( { transactions: [] } );
     }
   }
